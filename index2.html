@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mapa Podróży</title>
+<link rel="icon" href="earth.png" type="image/x-icon">
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<style>
+html, body {
+  margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif;
+  background: lightblue; display: flex; justify-content: center; align-items: center;
+}
+#stats {
+  position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+  z-index: 1000; background: rgba(255,255,255,0.85); padding: 8px 16px;
+  border-radius: 12px; font-weight: bold; font-size: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+#map-container {
+  position: relative; width: 98vw; max-width: 600px; height: 75vh;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3); border-radius: 15px;
+  overflow: hidden; background: #fff;
+}
+#map { height: 100%; width: 100%; }
+
+.popup-content { display: flex; flex-direction: column; gap: 6px; min-width: 250px; max-width: 320px; font-size: 14px; padding: 8px; }
+.country-title { text-align: center; font-weight: bold; font-size: 16px; margin-bottom: 6px; }
+.visit-btn { display: block; width: 100%; padding: 10px; border: none; border-radius: 6px; font-weight: bold; font-size: 14px; cursor: pointer; color: white; }
+.visited { background-color: green; } .not-visited { background-color: red; }
+.photo-wrapper { display: flex; justify-content: center; }
+.photo-upload-btn { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); color: white; font-size: 18px; border-radius: 50%; cursor: pointer; border: none; padding: 0; transition: transform 0.2s, box-shadow 0.2s; }
+.photo-upload-btn:hover { transform: translateY(-1px); box-shadow:0 3px 8px rgba(0,0,0,0.3);}
+.photo-upload-btn input { display:none; }
+.carousel-container { position: relative; width: 100%; height: 160px; overflow: hidden; border-radius: 10px; border: 1px solid #ccc; }
+.carousel-images { display: flex; transition: transform 0.3s ease-in-out; }
+.carousel-images img { max-width: 120px; max-height: 120px; object-fit: cover; margin-right: 5px; border-radius: 6px; flex-shrink: 0; cursor: pointer; }
+.delete-photo-btn { position: absolute; top: 2px; right: 2px; background: rgba(255,0,0,0.7); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; padding: 2px 4px; }
+.carousel-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; padding: 6px 10px; cursor: pointer; border-radius: 3px; font-weight: bold; z-index: 10; }
+.carousel-btn.left { left: 0; } .carousel-btn.right { right: 0; }
+#photo-modal { display: none; position: fixed; top: 0; left:0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); justify-content: center; align-items: center; z-index: 9999; }
+#photo-modal img { max-width: 95vw; max-height: 95vh; border-radius: 12px; }
+.leaflet-popup-tip { display: none; }
+</style>
+</head>
+<body>
+
+<div id="stats">Odwiedzone kraje: 0 / 0 (0%)</div>
+<div id="map-container"><div id="map"></div></div>
+<div id="photo-modal"><img src="" alt="Powiększone zdjęcie"></div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+const countryNamesPL = { "Antarctica":"Antarktyda","Afghanistan":"Afganistan","Albania":"Albania","Algeria":"Algieria","Andorra":"Andora","Angola":"Angola","Antigua and Barbuda":"Antigua i Barbuda","Argentina":"Argentyna","Armenia":"Armenia","Australia":"Australia","Austria":"Austria","Azerbaijan":"Azerbejdżan","Bahamas":"Bahamy","Bahrain":"Bahrajn","Bangladesh":"Bangladesz","Barbados":"Barbados","Belarus":"Białoruś","Belgium":"Belgia","Belize":"Belize","Benin":"Benin","Bhutan":"Bhutan","Bolivia":"Boliwia","Bosnia and Herzegovina":"Bośnia i Hercegowina","Botswana":"Botswana","Brazil":"Brazylia","Brunei":"Brunei","Bulgaria":"Bułgaria","Burkina Faso":"Burkina Faso","Burundi":"Burundi","Cabo Verde":"Republika Zielonego Przylądka","Cambodia":"Kambodża","Cameroon":"Kamerun","Canada":"Kanada","Central African Republic":"Republika Środkowoafrykańska","Chad":"Czad","Chile":"Chile","China":"Chiny","Colombia":"Kolumbia","Comoros":"Komory","Congo (Congo-Brazzaville)":"Kongo (Brazzaville)","Congo (Congo-Kinshasa)":"Kongo (Kinshasa)","Costa Rica":"Kostaryka","Croatia":"Chorwacja","Cuba":"Kuba","Cyprus":"Cypr","Czech Republic":"Czechy","Denmark":"Dania","Djibouti":"Dżibuti","Dominica":"Dominika","Dominican Republic":"Dominikana","Ecuador":"Ekwador","Egypt":"Egipt","El Salvador":"Salwador","Equatorial Guinea":"Gwinea Równikowa","Eritrea":"Erytrea","Estonia":"Estonia","Eswatini":"Eswatini","Ethiopia":"Etiopia","Fiji":"Fidżi","Finland":"Finlandia","France":"Francja","Gabon":"Gabon","Gambia":"Gambia","Georgia":"Gruzja","Germany":"Niemcy","Ghana":"Ghana","Greece":"Grecja","Grenada":"Grenada","Guatemala":"Gwatemala","Guinea":"Gwinea","Guinea-Bissau":"Gwinea-Bisau","Guyana":"Gujana","Haiti":"Haiti","Honduras":"Honduras","Hungary":"Węgry","Iceland":"Islandia","India":"Indie","Indonesia":"Indonezja","Iran":"Iran","Iraq":"Irak","Ireland":"Irlandia","Israel":"Izrael","Italy":"Włochy","Jamaica":"Jamajka","Japan":"Japonia","Jordan":"Jordania","Kazakhstan":"Kazachstan","Kenya":"Kenia","Kiribati":"Kiribati","Korea, North":"Korea Północna","Korea, South":"Korea Południowa","Kuwait":"Kuwejt","Kyrgyzstan":"Kirgistan","Laos":"Laos","Latvia":"Łotwa","Lebanon":"Liban","Lesotho":"Lesotho","Liberia":"Liberia","Libya":"Libia","Liechtenstein":"Liechtenstein","Lithuania":"Litwa","Luxembourg":"Luksemburg","Madagascar":"Madagaskar","Malawi":"Malawi","Malaysia":"Malezja","Maldives":"Malediwy","Mali":"Mali","Malta":"Malta","Marshall Islands":"Wyspy Marshalla","Mauritania":"Mauretania","Mauritius":"Mauritius","Mexico":"Meksyk","Micronesia":"Mikronezja","Moldova":"Mołdawia","Monaco":"Monako","Mongolia":"Mongolia","Montenegro":"Czarnogóra","Morocco":"Maroko","Mozambique":"Mozambik","Myanmar (Burma)":"Mjanma","Namibia":"Namibia","Nauru":"Nauru","Nepal":"Nepal","Netherlands":"Holandia","New Zealand":"Nowa Zelandia","Nicaragua":"Nikaragua","Niger":"Niger","Nigeria":"Nigeria","North Macedonia":"Macedonia Północna","Norway":"Norwegia","Oman":"Oman","Pakistan":"Pakistan","Palau":"Palau","Panama":"Panama","Papua New Guinea":"Papua-Nowa Gwinea","Paraguay":"Paragwaj","Peru":"Peru","Philippines":"Filipiny","Poland":"Polska","Portugal":"Portugalia","Qatar":"Katar","Romania":"Rumunia","Russia":"Rosja","Rwanda":"Rwanda","Saint Kitts and Nevis":"Saint Kitts i Nevis","Saint Lucia":"Saint Lucia","Saint Vincent and the Grenadines":"Saint Vincent i Grenadyny","Samoa":"Samoa","San Marino":"San Marino","Sao Tome and Principe":"Sao Tome i Principe","Saudi Arabia":"Arabia Saudyjska","Senegal":"Senegal","Serbia":"Serbia","Seychelles":"Seszele","Sierra Leone":"Sierra Leone","Singapore":"Singapur","Slovakia":"Słowacja","Slovenia":"Słowenia","Solomon Islands":"Wyspy Salomona","Somalia":"Somalia","South Africa":"Republika Południowej Afryki","South Korea":"Korea Południowa","South Sudan":"Sudan Południowy","Spain":"Hiszpania","Sri Lanka":"Sri Lanka","Sudan":"Sudan","Suriname":"Surinam","Sweden":"Szwecja","Switzerland":"Szwajcaria","Syria":"Syria","Taiwan":"Tajwan","Tanzania":"Tanzania","Thailand":"Tajlandia","Timor-Leste":"Timor Wschodni","Togo":"Togo","Tonga":"Tonga","Trinidad and Tobago":"Trynidad i Tobago","Tunisia":"Tunezja","Turkey":"Turcja","Turkmenistan":"Turkmenistan","Tuvalu":"Tuvalu","Uganda":"Uganda","Ukraine":"Ukraina","United Arab Emirates":"Zjednoczone Emiraty Arabskie","United Kingdom":"Wielka Brytania","United States":"Stany Zjednoczone","Uruguay":"Urugwaj","Uzbekistan":"Uzbekistan","Vanuatu":"Vanuatu","Vatican City":"Watykan","Venezuela":"Wenezuela","Vietnam":"Wietnam","Yemen":"Jemen","Zambia":"Zambia","Zimbabwe":"Zimbabwe" };
+
+const map = L.map('map',{dragging:true, zoomControl:true, scrollWheelZoom:false, doubleClickZoom:false, touchZoom:true, maxBounds:[[-90,-180],[90,180]]}).setView([20,0],2);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'© OpenStreetMap'}).addTo(map);
+
+const photoModal=document.getElementById('photo-modal');
+const modalImg=photoModal.querySelector('img');
+photoModal.addEventListener('click',()=>{photoModal.style.display='none';});
+
+const statsDiv=document.getElementById('stats');
+
+function updateStats(){
+  const savedData=JSON.parse(localStorage.getItem('countriesData')||'{}');
+  const visitedCountries=Object.values(savedData).filter(c=>c.visited).length;
+  const totalCountries=geojsonData ? geojsonData.features.length : 177;
+  const percent=totalCountries?Math.round((visitedCountries/totalCountries)*100):0;
+  statsDiv.textContent=`Odwiedzone kraje: ${visitedCountries} / ${totalCountries} (${percent}%)`;
+}
+
+// Dodawanie zdjęcia do karuzeli
+function addPhotoToCarousel(src,countryName,carouselImages,savedData){
+  const wrapper=document.createElement('div'); wrapper.style.position='relative';
+  const img=document.createElement('img'); img.src=src; wrapper.appendChild(img);
+  img.addEventListener('click',()=>{modalImg.src=src; photoModal.style.display='flex';});
+  const deleteBtn=document.createElement('button'); deleteBtn.textContent='🗑'; deleteBtn.className='delete-photo-btn';
+  wrapper.appendChild(deleteBtn);
+  deleteBtn.addEventListener('click',()=>{ 
+    const index=savedData[countryName].photos.indexOf(src);
+    if(index>-1){ savedData[countryName].photos.splice(index,1); localStorage.setItem('countriesData',JSON.stringify(savedData)); carouselImages.removeChild(wrapper); currentIndex=Math.min(currentIndex,carouselImages.children.length-1); updateCarousel(); }
+  });
+  carouselImages.appendChild(wrapper);
+}
+
+// Pobranie GeoJSON i inicjalizacja mapy
+let geojsonData=null;
+fetch('https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json')
+.then(res=>res.json())
+.then(geojson=>{
+  geojsonData=geojson;
+  const savedData=JSON.parse(localStorage.getItem('countriesData')||'{}');
+
+  L.geoJSON(geojson,{
+    style: feature => {
+      const countryName=feature.properties.name;
+      if(savedData[countryName]?.visited) return {color:"#555", weight:1, fillColor:"green", fillOpacity:0.7};
+      return {color:"#555", weight:1, fillColor:"#ddd", fillOpacity:0.7};
+    },
+    onEachFeature: (feature, layer) => {
+      const countryName=feature.properties.name;
+
+      layer.on('click',()=>{
+        const popupContent=document.createElement('div'); popupContent.className='popup-content';
+        const title=document.createElement('div'); title.className='country-title'; title.textContent=countryNamesPL[countryName]||countryName; popupContent.appendChild(title);
+
+        const visitBtn=document.createElement('button');
+        visitBtn.className=savedData[countryName]?.visited?'visit-btn visited':'visit-btn not-visited';
+        visitBtn.textContent=savedData[countryName]?.visited?'Odwiedzony ✅':'Nieodwiedzony ❌';
+        popupContent.appendChild(visitBtn);
+
+        const photoWrapper=document.createElement('div'); photoWrapper.className='photo-wrapper';
+        const photoBtn=document.createElement('label'); photoBtn.className='photo-upload-btn'; photoBtn.innerHTML='📷';
+        const photoInput=document.createElement('input'); photoInput.type='file'; photoInput.accept='image/*';
+        photoBtn.appendChild(photoInput); photoWrapper.appendChild(photoBtn); popupContent.appendChild(photoWrapper);
+
+        const carouselContainer=document.createElement('div'); carouselContainer.className='carousel-container';
+        const carouselImages=document.createElement('div'); carouselImages.className='carousel-images';
+        carouselContainer.appendChild(carouselImages);
+        const btnLeft=document.createElement('button'); btnLeft.className='carousel-btn left'; btnLeft.textContent='←';
+        const btnRight=document.createElement('button'); btnRight.className='carousel-btn right'; btnRight.textContent='→';
+        carouselContainer.appendChild(btnLeft); carouselContainer.appendChild(btnRight);
+        popupContent.appendChild(carouselContainer);
+
+        if(savedData[countryName]?.photos) savedData[countryName].photos.forEach(src=>addPhotoToCarousel(src,countryName,carouselImages,savedData));
+
+        let currentIndex=0;
+        function updateCarousel(){ 
+          const imgWidth = carouselImages.children[0]?.offsetWidth || 135;
+          carouselImages.style.transform=`translateX(${-currentIndex*(imgWidth+5)}px)`; 
+        }
+        btnLeft.addEventListener('click',()=>{if(currentIndex>0) currentIndex--; updateCarousel();});
+        btnRight.addEventListener('click',()=>{if(currentIndex<carouselImages.children.length-1) currentIndex++; updateCarousel();});
+
+        let startX=0,isDragging=false;
+        carouselImages.addEventListener('touchstart',(e)=>{startX=e.touches[0].clientX; isDragging=true;});
+        carouselImages.addEventListener('touchend',(e)=>{
+          if(!isDragging) return;
+          const endX=e.changedTouches[0].clientX;
+          const diff=startX-endX;
+          if(diff>30 && currentIndex<carouselImages.children.length-1) currentIndex++;
+          else if(diff<-30 && currentIndex>0) currentIndex--;
+          updateCarousel(); isDragging=false;
+        });
+
+        photoInput.addEventListener('change',event=>{
+          const file=event.target.files[0]; if(!file) return;
+          const reader=new FileReader();
+          reader.onload=function(e){
+            savedData[countryName]=savedData[countryName]||{};
+            savedData[countryName].photos=savedData[countryName].photos||[];
+            savedData[countryName].photos.push(e.target.result);
+            localStorage.setItem('countriesData',JSON.stringify(savedData));
+            addPhotoToCarousel(e.target.result,countryName,carouselImages,savedData);
+            currentIndex=savedData[countryName].photos.length-1; updateCarousel();
+          };
+          reader.readAsDataURL(file);
+        });
+
+        visitBtn.addEventListener('click',()=>{
+          savedData[countryName]=savedData[countryName]||{};
+          savedData[countryName].visited=!savedData[countryName]?.visited;
+          localStorage.setItem('countriesData',JSON.stringify(savedData));
+          layer.setStyle({fillColor:savedData[countryName].visited?'green':'#ddd'});
+          visitBtn.className=savedData[countryName].visited?'visit-btn visited':'visit-btn not-visited';
+          visitBtn.textContent=savedData[countryName].visited?'Odwiedzony ✅':'Nieodwiedzony ❌';
+          updateStats();
+        });
+
+        const center=map.getCenter();
+        L.popup({minWidth:250,maxWidth:320}).setLatLng(center).setContent(popupContent).openOn(map);
+      });
+    }
+  }).addTo(map);
+
+  updateStats();
+});
+</script>
+</body>
+</html>
